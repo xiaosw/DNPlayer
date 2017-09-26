@@ -4,12 +4,12 @@
 #include "Log.h"
 
 #include "Video.h"
-#include "Audio.h"
+
+
+//http://dranger.com/ffmpeg/tutorial05.html
 
 
 extern "C" {
-
-
 Video *video = 0;
 Audio *audio = 0;
 
@@ -18,7 +18,8 @@ ANativeWindow *window = 0;
 char *path = 0;
 JavaVM *vm = 0;
 jobject player = 0;
-
+pthread_t p_tid;
+int isPlay = 0;
 
 void call_audio_play(JNIEnv *env, uint8_t *buffer, int out_buffer_size) {
     jclass clazz = env->GetObjectClass(player);
@@ -77,11 +78,11 @@ void *process(void *args) {
         if (parameters->codec_type == AVMEDIA_TYPE_AUDIO) {
             audio->setCodec(codec);
             audio->index = i;
-            audio->stream = ifmt_ctx->streams[i];
+            audio->time_base = ifmt_ctx->streams[i]->time_base;
         } else if (parameters->codec_type == AVMEDIA_TYPE_VIDEO) {
             video->setCodec(codec);
             video->index = i;
-            video->stream = ifmt_ctx->streams[i];
+            video->time_base = ifmt_ctx->streams[i]->time_base;
             if (window)
                 ANativeWindow_setBuffersGeometry(window, video->codec->width,
                                                  video->codec->height,
@@ -91,20 +92,24 @@ void *process(void *args) {
 
     video->play(audio);
     audio->play();
+    isPlay = 1;
     AVPacket *packet = av_packet_alloc();
-
-    while (av_read_frame(ifmt_ctx, packet) == 0) {
-        if (video && packet->stream_index == video->index) {
+    while (isPlay && av_read_frame(ifmt_ctx, packet) == 0) {
+        if (video && video->isPlay && packet->stream_index == video->index) {
             video->enQueue(packet);
-        } else if (audio && packet->stream_index == audio->index) {
+        } else if (audio && audio->isPlay && packet->stream_index == audio->index) {
             audio->enQueue(packet);
-
         }
         av_packet_unref(packet);
     }
+    isPlay = 0;
+    if (video && video->isPlay)
+        video->stop();
+    if (audio && audio->isPlay)
+        audio->stop();
+    avformat_free_context(ifmt_ctx);
     av_packet_free(&packet);
-    audio->stop();
-    video->stop();
+    LOGI("PROCESS EXIT");
     pthread_exit(0);
 }
 
@@ -123,10 +128,8 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1play(
     video = new Video;
     audio = new Audio;
     audio->setPlayCall(call_audio_play);
-    audio->setJvm(vm);
+    audio->vm = vm;
     video->setPlayCall(call_video_play);
-
-    pthread_t p_tid;
     pthread_create(&p_tid, 0, process, 0);
     env->ReleaseStringUTFChars(url_, url);
 }
@@ -135,7 +138,6 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1play(
 JNIEXPORT void JNICALL
 Java_com_dongnao_dnplayer_DNPlayer_native_1set_1display(JNIEnv *env, jobject instance,
                                                         jobject surface) {
-
     if (window) {
         ANativeWindow_release(window);
         window = 0;
@@ -145,6 +147,43 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1set_1display(JNIEnv *env, jobject ins
         ANativeWindow_setBuffersGeometry(window, video->codec->width,
                                          video->codec->height,
                                          WINDOW_FORMAT_RGBA_8888);
+}
+
+JNIEXPORT void JNICALL
+Java_com_dongnao_dnplayer_DNPlayer_native_1stop(JNIEnv *env, jobject instance) {
+    if (path) {
+        free(path);
+        path = 0;
+    }
+    if (video) {
+        if (video->isPlay) {
+            video->stop();
+        }
+        delete (video);
+        video = 0;
+    }
+    if (audio) {
+        if (audio->isPlay) {
+            audio->stop();
+        }
+        delete (audio);
+        audio = 0;
+    }
+    if (isPlay) {
+        isPlay = 0;
+        pthread_join(p_tid, 0);
+    }
+    if (player) {
+        env->DeleteGlobalRef(player);
+        player = 0;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_dongnao_dnplayer_DNPlayer_native_1release(JNIEnv *env, jobject instance) {
+    if (window)
+        ANativeWindow_release(window);
+    window = 0;
 }
 
 }

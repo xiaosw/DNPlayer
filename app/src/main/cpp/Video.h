@@ -23,9 +23,7 @@ class Video {
 public:
     Video();
 
-    int enQueue(const AVFrame *frame);
-
-    int deQueue(AVFrame *frame);
+    ~Video();
 
     int enQueue(const AVPacket *packet);
 
@@ -42,28 +40,18 @@ public:
     double synchronize(AVFrame *frame, double pts);
 
 public:
-
     double clock;
-    double last_pts;
-    double last_delay;
     int isPlay;
-    AVStream *stream;
+    AVRational time_base;
     AVCodecContext *codec;
-    SwsContext *sws_ctx;
     int index;
-    AVFrame *rgb_frame;
+
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    std::queue<AVFrame *> queue;
+    std::queue<AVPacket *> queue;
 
-    pthread_mutex_t dec_mutex;
-    pthread_cond_t dec_cond;
-    std::queue<AVPacket *> dec_queue;
-
-    pthread_t p_decid;
     pthread_t p_playid;
 
-    double frame_timer;
 };
 }
 #endif //DNPLAYER_VIDEO_H

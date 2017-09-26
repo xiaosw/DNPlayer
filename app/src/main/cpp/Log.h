@@ -7,7 +7,6 @@
 
 #include <android/log.h>
 
-
 #define  LOGI(...) __android_log_print(ANDROID_LOG_INFO,"ffmpeg",__VA_ARGS__)
 
 #endif //DNPLAYER_LOG_H

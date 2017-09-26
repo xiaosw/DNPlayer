@@ -25,6 +25,10 @@ public class DNPlayer implements SurfaceHolder.Callback {
 
     private native void native_set_display(Surface surface);
 
+    private native void native_stop();
+
+    private native void native_release();
+
 
     public void play(String path) {
         if (null == display) {
@@ -34,8 +38,28 @@ public class DNPlayer implements SurfaceHolder.Callback {
         native_play(path);
     }
 
-    public void createAudioTrack() {
-        release();
+    public void stop() {
+        releaseAudio();
+        native_stop();
+    }
+
+    public void release() {
+        stop();
+        native_release();
+    }
+
+
+    public void setDisplay(SurfaceView display) {
+        if (null != this.display) {
+            this.display.getHolder().removeCallback(this);
+        }
+        this.display = display;
+        native_set_display(display.getHolder().getSurface());
+        this.display.getHolder().addCallback(this);
+    }
+
+    private void createAudioTrack() {
+        releaseAudio();
         int bufferSizeInBytes = AudioTrack.getMinBufferSize(44100, AudioFormat.CHANNEL_OUT_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT);
         audioTrack = new AudioTrack(
@@ -53,7 +77,7 @@ public class DNPlayer implements SurfaceHolder.Callback {
     }
 
 
-    public void release() {
+    private void releaseAudio() {
         if (null != audioTrack) {
             if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING)
                 audioTrack.stop();
@@ -62,14 +86,6 @@ public class DNPlayer implements SurfaceHolder.Callback {
         }
     }
 
-    public void setDisplay(SurfaceView display) {
-        if (null != this.display) {
-            this.display.getHolder().removeCallback(this);
-        }
-        this.display = display;
-        native_set_display(display.getHolder().getSurface());
-        this.display.getHolder().addCallback(this);
-    }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {

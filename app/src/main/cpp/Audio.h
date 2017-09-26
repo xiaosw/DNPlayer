@@ -27,9 +27,7 @@ class Audio {
 public:
     Audio();
 
-    int enQueue(const AVFrame *frame);
-
-    int deQueue(AVFrame *frame);
+    ~Audio();
 
     int enQueue(const AVPacket *packet);
 
@@ -43,31 +41,20 @@ public:
 
     void setCodec(AVCodecContext *codec);
 
-    void setJvm(JavaVM *vm);
 
     double getClock();
 
 public:
-    AVCodecContext *codec;
-    SwrContext *swr_ctx;
+    AVRational time_base;
     int index;
-    AVStream *stream;
+    AVCodecContext *codec;
     double clock;
     int isPlay;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    std::queue<AVFrame *> queue;
-
-    pthread_mutex_t dec_mutex;
-    pthread_cond_t dec_cond;
-    std::queue<AVPacket *> dec_queue;
-
-    pthread_t p_decid;
+    std::queue<AVPacket *> queue;
     pthread_t p_playid;
     JavaVM *vm;
-
-    double frame_timer;
-
 };
 }
 #endif //DNPLAYER_AUDIO_H
