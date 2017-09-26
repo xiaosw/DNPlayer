@@ -52,12 +52,14 @@ void *play_audio(void *args) {
         if (ret == AVERROR(EAGAIN)) {
             continue;
         } else if (ret < 0) {
+            LOGI("audio break");
             break;
         }
         ret = avcodec_receive_frame(audio->codec, frame);
         if (ret == AVERROR(EAGAIN)) {
             continue;
         } else if (ret < 0) {
+            LOGI("audio break");
             break;
         }
         dst_nb_samples = av_rescale_rnd(
@@ -74,6 +76,7 @@ void *play_audio(void *args) {
         //播放完成这段音频后音轨的时间
         double timer = static_cast<double>(data_size) / (A_SAMPLE_RATE * channels * 2);
         audio->clock += timer;
+//        av_usleep(5000);
         av_packet_unref(packet);
         av_frame_unref(frame);
     }

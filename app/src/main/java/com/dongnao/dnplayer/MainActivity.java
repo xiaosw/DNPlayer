@@ -2,11 +2,14 @@ package com.dongnao.dnplayer;
 
 import android.Manifest;
 import android.app.Activity;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.EditText;
+
+import java.io.IOException;
 
 /**
  * Created by xiang on 2017/9/22.
@@ -36,6 +39,16 @@ public class MainActivity extends Activity {
 
     public void play(View view) {
         dnPlayer.play(src.getText().toString());
+//        dnPlayer.play("/sdcard/a.flv");
+//        MediaPlayer mediaPlayer = new MediaPlayer();
+//        try {
+//            mediaPlayer.setDataSource("/sdcard/a.flv");
+//            mediaPlayer.setDisplay(surfaceView.getHolder());
+//            mediaPlayer.prepare();
+//            mediaPlayer.start();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
 
     }
 

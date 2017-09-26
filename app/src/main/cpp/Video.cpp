@@ -54,9 +54,8 @@ double Video::synchronize(AVFrame *frame, double pts) {
         clock = pts;
     else //pst为0 则先把pts设为上一帧时间
         pts = clock;
-
-    frame_delay = av_q2d(time_base);
-    //repeat_pict是解码时这帧需要延迟多少
+    frame_delay = av_q2d(codec->time_base);
+    //可能有pts为0 则主动增加clock
     frame_delay += frame->repeat_pict * (frame_delay * 0.5);
     clock += frame_delay;
     return pts;
@@ -128,7 +127,7 @@ void *play_video(void *args) {
             //在可忍受范围内不处理
             if (diff <= -sync_threshold) {
                 delay = 0;
-//                LOGI("加快速度");
+//                LOGI("加快速度 %f", delay);
             } else if (diff >= sync_threshold) {
                 delay = 2 * delay;
 //                LOGI("减慢速度 %f", delay);

@@ -21,13 +21,26 @@ jobject player = 0;
 pthread_t p_tid;
 int isPlay = 0;
 
+typedef struct {
+    jclass clazz;
+    jmethodID play_track;
+} JNIAudio;
+
+JNIAudio *jniAudio = 0;
 void call_audio_play(JNIEnv *env, uint8_t *buffer, int out_buffer_size) {
-    jclass clazz = env->GetObjectClass(player);
-    jmethodID play_track = env->GetMethodID(clazz, "playTrack", "([BI)V");
+    if (!jniAudio) {
+        jniAudio = (JNIAudio *) malloc(sizeof(JNIAudio));
+        memset(jniAudio, 0, sizeof(JNIAudio));
+        jniAudio->clazz = env->GetObjectClass(player);
+        jniAudio->play_track = env->GetMethodID(jniAudio->clazz, "playTrack", "([BI)V");
+    }
+//    jclass clazz = env->GetObjectClass(player);
+//    jmethodID play_track = env->GetMethodID(clazz, "playTrack", "([BI)V");
     jbyteArray array = env->NewByteArray(out_buffer_size);
     env->SetByteArrayRegion(array, 0, out_buffer_size, (const jbyte *) buffer);
-    env->CallVoidMethod(player, play_track, array, out_buffer_size);
+    env->CallVoidMethod(player, jniAudio->play_track, array, out_buffer_size);
     env->DeleteLocalRef(array);
+
 }
 void call_video_play(AVFrame *frame) {
     if (!window) {
@@ -89,18 +102,33 @@ void *process(void *args) {
                                                  WINDOW_FORMAT_RGBA_8888);
         }
     }
-
     video->play(audio);
     audio->play();
     isPlay = 1;
     AVPacket *packet = av_packet_alloc();
-    while (isPlay && av_read_frame(ifmt_ctx, packet) == 0) {
-        if (video && video->isPlay && packet->stream_index == video->index) {
-            video->enQueue(packet);
-        } else if (audio && audio->isPlay && packet->stream_index == audio->index) {
-            audio->enQueue(packet);
+    int ret = 0;
+    while (isPlay) {
+        ret = av_read_frame(ifmt_ctx, packet);
+        if (ret == 0) {
+            if (video && video->isPlay && packet->stream_index == video->index) {
+                video->enQueue(packet);
+            } else if (audio && audio->isPlay && packet->stream_index == audio->index) {
+                audio->enQueue(packet);
+            }
+            av_packet_unref(packet);
+        } else if (ret == AVERROR_EOF) {
+            //读取完毕 但是不一定播放完毕
+            while (isPlay) {
+                if (video->queue.empty() && audio->queue.empty()) {
+                    break;
+                }
+//                LOGI("等待播放完成");
+                av_usleep(10000);
+            }
+            break;
+        } else {
+            break;
         }
-        av_packet_unref(packet);
     }
     isPlay = 0;
     if (video && video->isPlay)
@@ -172,6 +200,10 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1stop(JNIEnv *env, jobject instance) {
     if (isPlay) {
         isPlay = 0;
         pthread_join(p_tid, 0);
+    }
+    if (jniAudio) {
+        free(jniAudio);
+        jniAudio = 0;
     }
     if (player) {
         env->DeleteGlobalRef(player);
