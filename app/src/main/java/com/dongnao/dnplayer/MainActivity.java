@@ -13,7 +13,6 @@ import java.io.IOException;
 
 /**
  * Created by xiang on 2017/9/22.
- * 动脑学院 版权所有
  */
 
 public class MainActivity extends Activity {
