@@ -48,16 +48,24 @@ void Video::setCodec(AVCodecContext *codec) {
 }
 
 double Video::synchronize(AVFrame *frame, double pts) {
-    double frame_delay;
     //clock是当前播放的时间位置
     if (pts != 0)
         clock = pts;
     else //pst为0 则先把pts设为上一帧时间
         pts = clock;
-    frame_delay = av_q2d(codec->time_base);
     //可能有pts为0 则主动增加clock
-    frame_delay += frame->repeat_pict * (frame_delay * 0.5);
-    clock += frame_delay;
+    //frame->repeat_pict = 当解码时，这张图片需要要延迟多少
+    //需要求出扩展延时：
+    //extra_delay = repeat_pict / (2*fps)
+    double repeat_pict = frame->repeat_pict;
+    //使用AvCodecContext的而不是stream的
+    double frame_delay = av_q2d(codec->time_base);
+    //如果time_base是1,25 把1s分成25份，则fps为25
+    //fps = 1/(1/25)
+    double fps = 1 / frame_delay;
+    double extra_delay = repeat_pict / (2 * fps) + frame_delay;
+    LOGI("extra_delay:%f",extra_delay);
+    clock += extra_delay;
     return pts;
 }
 
