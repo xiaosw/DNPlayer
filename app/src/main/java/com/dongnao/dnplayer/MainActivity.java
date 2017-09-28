@@ -37,7 +37,9 @@ public class MainActivity extends Activity {
     }
 
     public void play(View view) {
-        dnPlayer.play(src.getText().toString());
+//        dnPlayer.play(src.getText().toString());
+        dnPlayer.play("rtmp://live.hkstv.hk.lxdns.com/live/hks");
+
 //        dnPlayer.play("/sdcard/a.flv");
 //        MediaPlayer mediaPlayer = new MediaPlayer();
 //        try {

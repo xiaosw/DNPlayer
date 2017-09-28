@@ -25,4 +25,4 @@ set_target_properties(swscale PROPERTIES IMPORTED_LOCATION ${my_lib_path}/libsws
 include_directories(src/main/cpp/include)
 
 #编译链接
-target_link_libraries(native-lib avfilter avformat    avcodec  avutil postproc swresample swscale  z log android)
+target_link_libraries(native-lib avfilter avformat    avcodec  avutil postproc swresample swscale OpenSLES  z log android)

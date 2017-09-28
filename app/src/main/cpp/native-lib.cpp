@@ -16,32 +16,10 @@ Audio *audio = 0;
 ANativeWindow *window = 0;
 
 char *path = 0;
-JavaVM *vm = 0;
-jobject player = 0;
 pthread_t p_tid;
 int isPlay = 0;
 
-typedef struct {
-    jclass clazz;
-    jmethodID play_track;
-} JNIAudio;
 
-JNIAudio *jniAudio = 0;
-void call_audio_play(JNIEnv *env, uint8_t *buffer, int out_buffer_size) {
-    if (!jniAudio) {
-        jniAudio = (JNIAudio *) malloc(sizeof(JNIAudio));
-        memset(jniAudio, 0, sizeof(JNIAudio));
-        jniAudio->clazz = env->GetObjectClass(player);
-        jniAudio->play_track = env->GetMethodID(jniAudio->clazz, "playTrack", "([BI)V");
-    }
-//    jclass clazz = env->GetObjectClass(player);
-//    jmethodID play_track = env->GetMethodID(clazz, "playTrack", "([BI)V");
-    jbyteArray array = env->NewByteArray(out_buffer_size);
-    env->SetByteArrayRegion(array, 0, out_buffer_size, (const jbyte *) buffer);
-    env->CallVoidMethod(player, jniAudio->play_track, array, out_buffer_size);
-    env->DeleteLocalRef(array);
-
-}
 void call_video_play(AVFrame *frame) {
     if (!window) {
         return;
@@ -60,16 +38,6 @@ void call_video_play(AVFrame *frame) {
     ANativeWindow_unlockAndPost(window);
 }
 
-
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm_, void *reserved) {
-    vm = vm_;
-    JNIEnv *env = NULL;
-    jint result = -1;
-    if (vm->GetEnv((void **) &env, JNI_VERSION_1_4) != JNI_OK) {
-        return result;
-    }
-    return JNI_VERSION_1_4;
-}
 
 void *process(void *args) {
     av_register_all();
@@ -110,9 +78,9 @@ void *process(void *args) {
     while (isPlay) {
         ret = av_read_frame(ifmt_ctx, packet);
         if (ret == 0) {
-            if (video && video->isPlay && packet->stream_index == video->index) {
+            if (video && packet->stream_index == video->index) {
                 video->enQueue(packet);
-            } else if (audio && audio->isPlay && packet->stream_index == audio->index) {
+            } else if (audio && packet->stream_index == audio->index) {
                 audio->enQueue(packet);
             }
             av_packet_unref(packet);
@@ -147,7 +115,6 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1play(
         jobject instance, jstring url_) {
     const char *url = env->GetStringUTFChars(url_, 0);
 
-    player = env->NewGlobalRef(instance);
 
     path = (char *) malloc(strlen(url) + 1);
     memset(path, 0, strlen(url) + 1);
@@ -155,8 +122,6 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1play(
 
     video = new Video;
     audio = new Audio;
-    audio->setPlayCall(call_audio_play);
-    audio->vm = vm;
     video->setPlayCall(call_video_play);
     pthread_create(&p_tid, 0, process, 0);
     env->ReleaseStringUTFChars(url_, url);
@@ -183,6 +148,10 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1stop(JNIEnv *env, jobject instance) {
         free(path);
         path = 0;
     }
+    if (isPlay) {
+        isPlay = 0;
+        pthread_join(p_tid, 0);
+    }
     if (video) {
         if (video->isPlay) {
             video->stop();
@@ -197,18 +166,7 @@ Java_com_dongnao_dnplayer_DNPlayer_native_1stop(JNIEnv *env, jobject instance) {
         delete (audio);
         audio = 0;
     }
-    if (isPlay) {
-        isPlay = 0;
-        pthread_join(p_tid, 0);
-    }
-    if (jniAudio) {
-        free(jniAudio);
-        jniAudio = 0;
-    }
-    if (player) {
-        env->DeleteGlobalRef(player);
-        player = 0;
-    }
+
 }
 
 JNIEXPORT void JNICALL

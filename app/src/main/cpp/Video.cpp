@@ -23,7 +23,7 @@ void default_video_call(AVFrame *frame) {
 static void (*video_call)(AVFrame *frame) = default_video_call;
 
 Video::Video() : clock(0), codec(0), index(-1),
-                 isPlay(0) {
+                 isPlay(0), frame_timer(0) {
     pthread_mutex_init(&mutex, NULL);
     pthread_cond_init(&cond, NULL);
 }
@@ -81,9 +81,11 @@ void *play_video(void *args) {
     double last_delay;
     AVPacket *packet = av_packet_alloc();
     AVFrame *frame = av_frame_alloc();
-    double pts, delay, audio_clock, diff, sync_threshold;
+    double pts, delay, audio_clock, diff, sync_threshold, actual_delay;
     while (sync->video->isPlay) {
         sync->video->deQueue(packet);
+        if (!sync->video->frame_timer)
+            sync->video->frame_timer = (double) av_gettime() / 1000000.0;
         int ret = avcodec_send_packet(sync->video->codec, packet);
         if (ret == AVERROR(EAGAIN)) {
             goto cont;
@@ -106,8 +108,10 @@ void *play_video(void *args) {
                   (const uint8_t *const *) frame->data, frame->linesize, 0, frame->height,
                   rgb_frame->data, rgb_frame->linesize);
         delay = pts - last_pts;
+        //当前帧与上个帧的显示时间差
         if (delay <= 0 || delay >= 1.0) {
             //如果延误不正确 太高或太低，使用上一个
+            //确保这个延迟有意义
             delay = last_delay;
         }
         audio_clock = sync->audio->getClock();
@@ -121,25 +125,35 @@ void *play_video(void *args) {
         //大于0就是视频快了,小于就是音频快了
         diff = sync->video->clock - audio_clock;
 //        LOGI("diff %f", diff);
+        //两帧时间差
         sync_threshold = (delay > SYNC_THRESHOLD) ? delay : SYNC_THRESHOLD;
         //防止没有音频 如果误差在10以内则进行同步，否则认为没音频
+        //音视频间隔在10s内才处理
         if (fabs(diff) < NOSYNC_THRESHOLD) {
-            //在可忍受范围内不处理
             if (diff <= -sync_threshold) {
                 delay = 0;
-//                LOGI("加快速度 %f", delay);
+                LOGI("加快速度 %f", delay);
             } else if (diff >= sync_threshold) {
                 delay = 2 * delay;
-//                LOGI("减慢速度 %f", delay);
+                LOGI("减慢速度 %f", delay);
             }
         }
-//        LOGI("sleep %f", delay * 1000000 + 5000);
-        av_usleep(delay * 1000000 + 5000);
+        //得到当前帧应该显示的时间
+        sync->video->frame_timer += delay;
+        //当前帧应该显示的时间减去当前时间 就是需要等待的时间
+        actual_delay = sync->video->frame_timer - (av_gettime() / 1000000.0);
+        //让最小刷新时间是10ms
+        if (actual_delay < 0.010) {
+            actual_delay = 0.010;
+        }
+        LOGI("sleep %f", actual_delay * 1000000 + 5000);
+        av_usleep(actual_delay * 1000000 + 5000);
         video_call(rgb_frame);
         cont:
         av_packet_unref(packet);
         av_frame_unref(frame);
     }
+    sync->video->frame_timer = 0;
     av_packet_free(&packet);
     av_frame_free(&frame);
     av_frame_free(&rgb_frame);
@@ -170,6 +184,7 @@ void Video::stop() {
 
     pthread_mutex_lock(&mutex);
     isPlay = 0;
+    //因为可能卡在 deQueue
     pthread_cond_signal(&cond);
     pthread_mutex_unlock(&mutex);
 
@@ -186,6 +201,8 @@ void Video::stop() {
 
 
 int Video::enQueue(const AVPacket *packet) {
+    if (!isPlay)
+        return 0;
     AVPacket *pkt = av_packet_alloc();
     if (av_packet_ref(pkt, packet) < 0)
         return 0;

@@ -52,6 +52,8 @@ public:
 
     pthread_t p_playid;
 
+    double frame_timer;
+
 };
 }
 #endif //DNPLAYER_VIDEO_H

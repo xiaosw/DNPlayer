@@ -5,7 +5,7 @@
 #ifndef DNPLAYER_AUDIO_H
 #define DNPLAYER_AUDIO_H
 
-#include <android/native_window_jni.h>
+#include <SLES/OpenSLES_Android.h>
 #include <queue>
 
 extern "C" {
@@ -33,8 +33,6 @@ public:
 
     int deQueue(AVPacket *packet);
 
-    void setPlayCall(void (*call)(JNIEnv *env, uint8_t *buffer, int len));
-
     void play();
 
     void stop();
@@ -43,6 +41,12 @@ public:
 
 
     double getClock();
+
+    int decodeAudio();
+
+    int createPlayer();
+
+
 
 public:
     AVRational time_base;
@@ -53,8 +57,23 @@ public:
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     std::queue<AVPacket *> queue;
+
     pthread_t p_playid;
-    JavaVM *vm;
+
+    SLObjectItf engineObject;
+    SLEngineItf engineEngine;
+    SLEnvironmentalReverbItf outputMixEnvironmentalReverb;
+    SLObjectItf outputMixObject;
+    SLObjectItf bqPlayerObject;
+    SLEffectSendItf bqPlayerEffectSend;
+    SLVolumeItf bqPlayerVolume;
+    SLPlayItf bqPlayerPlay;
+    SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue;
+
+    SwrContext *swr_ctx;
+
+    uint8_t *buff;
+    int channels;
 };
 }
 #endif //DNPLAYER_AUDIO_H
