@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <string>
 
+
 #include "Log.h"
 
 #include "Video.h"
@@ -10,6 +11,8 @@
 
 
 extern "C" {
+
+
 Video *video = 0;
 Audio *audio = 0;
 
@@ -36,6 +39,7 @@ void call_video_play(AVFrame *frame) {
         memcpy(dst + i * dstStride, src + i * srcStride, srcStride);
     }
     ANativeWindow_unlockAndPost(window);
+
 }
 
 
@@ -51,10 +55,10 @@ void *process(void *args) {
 
         AVCodecParameters *parameters = ifmt_ctx->streams[i]->codecpar;
         AVCodec *dec = avcodec_find_decoder(parameters->codec_id);
-
         AVCodecContext *codec = avcodec_alloc_context3(dec);
         avcodec_parameters_to_context(codec, parameters);
         avcodec_open2(codec, dec, 0);
+
 
         if (parameters->codec_type == AVMEDIA_TYPE_AUDIO) {
             audio->setCodec(codec);

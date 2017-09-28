@@ -132,10 +132,10 @@ void *play_video(void *args) {
         if (fabs(diff) < NOSYNC_THRESHOLD) {
             if (diff <= -sync_threshold) {
                 delay = 0;
-                LOGI("加快速度 %f", delay);
+//                LOGI("加快速度 %f", delay);
             } else if (diff >= sync_threshold) {
                 delay = 2 * delay;
-                LOGI("减慢速度 %f", delay);
+//                LOGI("减慢速度 %f", delay);
             }
         }
         //得到当前帧应该显示的时间
@@ -146,8 +146,8 @@ void *play_video(void *args) {
         if (actual_delay < 0.010) {
             actual_delay = 0.010;
         }
-        LOGI("sleep %f", actual_delay * 1000000 + 5000);
-        av_usleep(actual_delay * 1000000 + 5000);
+//        LOGI("sleep %f", actual_delay * 1000000);
+        av_usleep(actual_delay * 1000000);
         video_call(rgb_frame);
         cont:
         av_packet_unref(packet);
