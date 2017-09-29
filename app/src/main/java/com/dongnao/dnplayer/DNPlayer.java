@@ -17,7 +17,6 @@ public class DNPlayer implements SurfaceHolder.Callback {
         System.loadLibrary("native-lib");
     }
 
-    private static AudioTrack audioTrack;
     private SurfaceView display;
 
     private native void native_play(String path);
@@ -33,12 +32,10 @@ public class DNPlayer implements SurfaceHolder.Callback {
         if (null == display) {
             return;
         }
-        createAudioTrack();
         native_play(path);
     }
 
     public void stop() {
-        releaseAudio();
         native_stop();
     }
 
@@ -57,33 +54,7 @@ public class DNPlayer implements SurfaceHolder.Callback {
         this.display.getHolder().addCallback(this);
     }
 
-    private void createAudioTrack() {
-        releaseAudio();
-        int bufferSizeInBytes = AudioTrack.getMinBufferSize(44100, AudioFormat.CHANNEL_OUT_STEREO,
-                AudioFormat.ENCODING_PCM_16BIT);
-        audioTrack = new AudioTrack(
-                AudioManager.STREAM_MUSIC,
-                44100, AudioFormat.CHANNEL_OUT_STEREO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferSizeInBytes, AudioTrack.MODE_STREAM);
-        audioTrack.play();
-    }
 
-    public void playTrack(byte[] buffer, int len) {
-        if (null != audioTrack && audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-            audioTrack.write(buffer, 0, len);
-        }
-    }
-
-
-    private void releaseAudio() {
-        if (null != audioTrack) {
-            if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING)
-                audioTrack.stop();
-            audioTrack.release();
-            audioTrack = null;
-        }
-    }
 
 
     @Override

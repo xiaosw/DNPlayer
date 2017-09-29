@@ -192,12 +192,14 @@ double Audio::getClock() {
 
 
 void *play_audio(void *args) {
+
 //    LOGI("play_audio %d====%d", pthread_self(), gettid());
     Audio *audio = (Audio *) args;
     audio->createPlayer();
 //    while (audio->isPlay)
 //        av_usleep(10000);
     pthread_exit(0);
+
 }
 
 void Audio::play() {
@@ -237,6 +239,12 @@ void Audio::stop() {
         engineObject = 0;
         engineEngine = 0;
     }
+    size_t size = queue.size();
+    for (int i = 0; i < size; ++i) {
+        AVPacket *pkt = queue.front();
+        av_packet_free(&pkt);
+        queue.pop();
+    }
     if (swr_ctx)
         swr_free(&swr_ctx);
     if (this->codec) {
@@ -256,6 +264,7 @@ int Audio::enQueue(const AVPacket *packet) {
     if (av_packet_ref(pkt, packet) < 0) {
         return 0;
     }
+    LOGI("enQueue");
     pthread_mutex_lock(&mutex);
     queue.push(pkt);
     pthread_cond_signal(&cond);
@@ -267,9 +276,10 @@ int Audio::deQueue(AVPacket *packet) {
     int ret = 0;
     pthread_mutex_lock(&mutex);
     while (isPlay) {
+        LOGI("dequeue");
         if (!queue.empty()) {
             if (av_packet_ref(packet, queue.front()) < 0) {
-                ret = false;
+                ret = 0;
                 break;
             }
             AVPacket *pkt = queue.front();
@@ -277,6 +287,7 @@ int Audio::deQueue(AVPacket *packet) {
             av_packet_unref(pkt);
             av_packet_free(&pkt);
             ret = 1;
+            LOGI("dequeue 2");
             break;
         } else {
             pthread_cond_wait(&cond, &mutex);

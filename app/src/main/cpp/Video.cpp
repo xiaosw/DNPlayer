@@ -56,16 +56,18 @@ double Video::synchronize(AVFrame *frame, double pts) {
     //可能有pts为0 则主动增加clock
     //frame->repeat_pict = 当解码时，这张图片需要要延迟多少
     //需要求出扩展延时：
-    //extra_delay = repeat_pict / (2*fps)
+    //extra_delay = repeat_pict / (2*fps) 显示这样图片需要延迟这么久来显示
     double repeat_pict = frame->repeat_pict;
     //使用AvCodecContext的而不是stream的
     double frame_delay = av_q2d(codec->time_base);
     //如果time_base是1,25 把1s分成25份，则fps为25
     //fps = 1/(1/25)
     double fps = 1 / frame_delay;
-    double extra_delay = repeat_pict / (2 * fps) + frame_delay;
-    LOGI("extra_delay:%f",extra_delay);
-    clock += extra_delay;
+    //pts 加上 这个延迟 是显示时间
+    double extra_delay = repeat_pict / (2 * fps);
+    double delay = extra_delay + frame_delay;
+//    LOGI("extra_delay:%f",extra_delay);
+    clock += delay;
     return pts;
 }
 
